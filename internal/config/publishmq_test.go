@@ -48,6 +48,50 @@ func TestPublishMQConfig_GetInfraType_AWSSQS(t *testing.T) {
 	}
 }
 
+func TestPublishMQConfig_NATS(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		consumer     string
+		wantConsumer string
+	}{
+		{
+			name:         "default consumer",
+			wantConsumer: "outpost-publish-consumer",
+		},
+		{
+			name:         "custom consumer",
+			consumer:     "custom-consumer",
+			wantConsumer: "custom-consumer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfg := config.PublishMQConfig{
+				NATS: config.PublishNATSConfig{
+					ServerURL: "nats://localhost:4222",
+					Stream:    "events",
+					Subject:   "events.outpost",
+					Consumer:  tt.consumer,
+				},
+			}
+
+			assert.Equal(t, "nats", cfg.GetInfraType())
+			require.NoError(t, cfg.Validate())
+
+			queue := cfg.GetQueueConfig()
+			require.NotNil(t, queue.PublishNATS)
+			assert.Equal(t, "nats://localhost:4222", queue.PublishNATS.ServerURL)
+			assert.Equal(t, "events", queue.PublishNATS.Stream)
+			assert.Equal(t, "events.outpost", queue.PublishNATS.Subject)
+			assert.Equal(t, tt.wantConsumer, queue.PublishNATS.ConsumerName)
+		})
+	}
+}
+
 func TestPublishMQConfig_Validate(t *testing.T) {
 	t.Parallel()
 
@@ -77,6 +121,26 @@ func TestPublishMQConfig_Validate(t *testing.T) {
 		{
 			name: "no publish provider configured",
 			cfg:  config.PublishMQConfig{},
+		},
+		{
+			name: "nats requires stream",
+			cfg: config.PublishMQConfig{
+				NATS: config.PublishNATSConfig{
+					ServerURL: "nats://localhost:4222",
+					Subject:   "events.outpost",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "nats requires subject",
+			cfg: config.PublishMQConfig{
+				NATS: config.PublishNATSConfig{
+					ServerURL: "nats://localhost:4222",
+					Stream:    "events",
+				},
+			},
+			wantErr: true,
 		},
 	}
 
@@ -133,6 +197,7 @@ func TestPublishMQConfig_ProxyURL(t *testing.T) {
 		"awssqs":          {AWSSQS: config.PublishAWSSQSConfig{Region: "us-east-1", Queue: "q"}},
 		"gcppubsub":       {GCPPubSub: config.PublishGCPPubSubConfig{Project: "p", Topic: "t", Subscription: "s"}},
 		"azureservicebus": {AzureServiceBus: config.PublishAzureServiceBusConfig{ConnectionString: "cs", Topic: "t", Subscription: "s"}},
+		"nats":            {NATS: config.PublishNATSConfig{ServerURL: "nats://localhost:4222", Stream: "events", Subject: "events.publish"}},
 	} {
 		t.Run(name+" ignores the proxy", func(t *testing.T) {
 			t.Parallel()

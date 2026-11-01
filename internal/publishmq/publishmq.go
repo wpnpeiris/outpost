@@ -27,7 +27,12 @@ func New(opts ...func(opts *PublishMQOption)) *PublishMQ {
 		opt(options)
 	}
 	queueConfig := options.QueueConfig
-	queue := mqs.NewQueue(queueConfig)
+	var queue mqs.Queue
+	if queueConfig != nil && queueConfig.PublishNATS != nil {
+		queue = mqs.NewNATSPublishQueue(queueConfig.PublishNATS)
+	} else {
+		queue = mqs.NewQueue(queueConfig)
+	}
 
 	return &PublishMQ{
 		queueConfig: queueConfig,

@@ -58,7 +58,7 @@ Read [Outpost Concepts](https://hookdeck.com/docs/outpost/concepts) to learn mor
 - **At least once delivery guarantee**: Messages are guaranteed to be delivered at least once and never lost.
 - **Automatic and manual retries**: Configure retry strategies for event destinations and manually trigger event delivery retries via the API or user portal.
 - **Event fanout**: A message sent to a topic is replicated and delivered to multiple endpoints for parallel processing and asynchronous event notifications.
-- **Publish events via the API or a queue**: Publish events using the Outpost API or configure Outpost to read events from a publish queue.
+- **Publish events via the API or a queue**: Publish events using the Outpost API or configure Outpost to read events from AWS SQS, Azure Service Bus, GCP Pub/Sub, RabbitMQ, or NATS JetStream.
 - **OpenTelemetry**: OTel standardized traces, metrics, and logs.
 - **Webhook best practices**: Opt-out webhook best practices, such as headers for idempotency, timestamp and signature, and signature rotation.
 - **SDKs and MCP server**: Go, Python, and TypeScript SDKs are available. Outpost also ships with an MCP server.

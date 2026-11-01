@@ -29,7 +29,10 @@ This document will focus on the first two types of integrations. The third type,
 
 publishmq only:
 
+- [x] NATS JetStream
 - [ ] Kafka
+
+For publishmq, NATS JetStream consumes from an existing stream and Outpost creates a durable consumer without managing the stream. See [Publish from NATS JetStream](../docs/content/publishing/publish-from-nats.mdoc).
 
 The local dev stack (`make up`) runs Outpost on NATS JetStream by default; [Getting Started](getting-started.md#choosing-the-internal-message-queue) shows how to switch to another queue. Tests of the other internal queues run with `TESTCOMPAT=1` ([Test](test.md#test-groups)).
 

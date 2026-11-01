@@ -37,11 +37,19 @@ type PublishRabbitMQConfig struct {
 	Queue     string `yaml:"queue" env:"PUBLISH_RABBITMQ_QUEUE" desc:"Name of the RabbitMQ queue for publishing events. Required if RabbitMQ is the chosen publish MQ provider." required:"C"`
 }
 
+type PublishNATSConfig struct {
+	ServerURL string `yaml:"server_url" env:"PUBLISH_NATS_SERVER_URL" desc:"NATS server connection URL for the JetStream publish stream." required:"C"`
+	Stream    string `yaml:"stream" env:"PUBLISH_NATS_STREAM" desc:"Name of the existing JetStream stream to consume from." required:"C"`
+	Subject   string `yaml:"subject" env:"PUBLISH_NATS_SUBJECT" desc:"Subject within the existing JetStream stream to consume." required:"C"`
+	Consumer  string `yaml:"consumer" env:"PUBLISH_NATS_CONSUMER" desc:"Optional durable consumer name. Defaults to outpost-publish-consumer." required:"N"`
+}
+
 type PublishMQConfig struct {
 	AWSSQS          PublishAWSSQSConfig          `yaml:"aws_sqs" desc:"Configuration for using AWS SQS as the publish message queue. Only one publish MQ provider should be configured." required:"N"`
 	AzureServiceBus PublishAzureServiceBusConfig `yaml:"azure_servicebus" desc:"Configuration for using Azure Service Bus as the publish message queue. Only one publish MQ provider should be configured." required:"N"`
 	GCPPubSub       PublishGCPPubSubConfig       `yaml:"gcp_pubsub" desc:"Configuration for using GCP Pub/Sub as the publish message queue. Only one publish MQ provider should be configured." required:"N"`
 	RabbitMQ        PublishRabbitMQConfig        `yaml:"rabbitmq" desc:"Configuration for using RabbitMQ as the publish message queue. Only one publish MQ provider should be configured." required:"N"`
+	NATS            PublishNATSConfig            `yaml:"nats" desc:"Configuration for consuming events from an existing NATS JetStream stream." required:"N"`
 	ProxyURL        string                       `yaml:"proxy_url" env:"PUBLISH_PROXY_URL" desc:"HTTP CONNECT forward proxy for the publish queue connection, e.g. 'http://user:pass@proxy:10000'. Multiple whitespace-separated URLs are tunneled in order, nearest first. RabbitMQ only; ignored for other providers." required:"N"`
 }
 
@@ -57,6 +65,9 @@ func (c PublishMQConfig) GetInfraType() string {
 	}
 	if hasPublishRabbitMQConfig(c.RabbitMQ) {
 		return "rabbitmq"
+	}
+	if hasPublishNATSConfig(c.NATS) {
+		return "nats"
 	}
 	return ""
 }
@@ -100,6 +111,19 @@ func (c *PublishMQConfig) GetQueueConfig() *mqs.QueueConfig {
 				Dial:      c.proxyDial(),
 			},
 		}
+	case "nats":
+		consumer := c.NATS.Consumer
+		if consumer == "" {
+			consumer = "outpost-publish-consumer"
+		}
+		return &mqs.QueueConfig{
+			PublishNATS: &mqs.NATSPublishConfig{
+				ServerURL:    c.NATS.ServerURL,
+				Stream:       c.NATS.Stream,
+				Subject:      c.NATS.Subject,
+				ConsumerName: consumer,
+			},
+		}
 	default:
 		return nil
 	}
@@ -115,6 +139,9 @@ func (c *PublishMQConfig) Validate() error {
 		if (c.AWSSQS.AccessKeyID == "") != (c.AWSSQS.SecretAccessKey == "") {
 			return errPartialAWSSQSCredentials
 		}
+	}
+	if c.GetInfraType() == "nats" && (c.NATS.Stream == "" || c.NATS.Subject == "") {
+		return fmt.Errorf("nats publish queue: stream and subject are required")
 	}
 	return nil
 }
@@ -134,6 +161,10 @@ func hasPublishGCPPubSubConfig(config PublishGCPPubSubConfig) bool {
 }
 
 func hasPublishRabbitMQConfig(config PublishRabbitMQConfig) bool {
+	return config.ServerURL != ""
+}
+
+func hasPublishNATSConfig(config PublishNATSConfig) bool {
 	return config.ServerURL != ""
 }
 

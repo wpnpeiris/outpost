@@ -1,0 +1,64 @@
+---
+title: "Publish from NATS JetStream"
+description: "Configure self-hosted Outpost to consume events from an existing NATS JetStream stream."
+---
+
+Configure self-hosted Outpost to consume events from an existing NATS JetStream stream and route them to matching destinations. Messages use the same event structure as the [Publish API](/docs/outpost/publishing/events).
+
+## Message structure
+
+Each message body must be a JSON object with the fields used by the Publish API:
+
+```json
+{
+  "tenant_id": "tenant_123",
+  "topic": "user.created",
+  "data": {
+    "user_id": "usr_456"
+  }
+}
+```
+
+`tenant_id` is required. Set `topic` to match a destination subscription, or set `destination_id` to route to one destination directly. See [publishing events](/docs/outpost/publishing/events#event-structure) for all supported fields.
+
+## Configure Outpost
+
+Outpost requires the NATS server URL, an existing stream name, and the subject to consume. It creates or updates a durable pull consumer on that stream. Outpost does not create, update, or delete the stream.
+
+### Environment variables
+
+```sh
+PUBLISH_NATS_SERVER_URL="nats://nats.example.com:4222"
+PUBLISH_NATS_STREAM="outpost-publish"
+PUBLISH_NATS_SUBJECT="outpost-publish"
+PUBLISH_NATS_CONSUMER="outpost-publish-consumer"
+```
+
+`PUBLISH_NATS_CONSUMER` is optional and defaults to `outpost-publish-consumer`. Use a dedicated consumer for this Outpost subscription. Outpost replicas configured with the same stream, subject, and consumer share that durable consumer; use different consumer names when separate Outpost deployments each need to receive every event.
+
+### YAML
+
+```yaml
+publishmq:
+  nats:
+    server_url: "nats://nats.example.com:4222"
+    stream: "outpost-publish"
+    subject: "outpost-publish"
+    consumer: "outpost-publish-consumer"
+```
+
+Create the stream and ensure its subject configuration includes the subject Outpost will consume. The consumer name must contain only letters, numbers, hyphens, or underscores.
+
+If the stream uses `WorkQueuePolicy`, no other durable consumer can have an overlapping filter for this subject. JetStream work-queue retention does not allow the same message to be assigned to multiple consumers.
+
+## Delivery and redelivery
+
+Outpost acknowledges a message after it has accepted the event and enqueued its matching destination deliveries. Event delivery to each destination then follows Outpost's normal retry policy.
+
+The JetStream consumer uses explicit acknowledgements and permits unlimited broker redeliveries. A failed event is negatively acknowledged and JetStream can redeliver it immediately. `PUBLISH_MAX_REDELIVERIES` can cap processing failures in Outpost; when that limit is reached, Outpost acknowledges the message and stops retrying it.
+
+## Availability
+
+This publish-queue configuration is for self-hosted Outpost. It is separate from `mqs.nats`, which configures NATS JetStream for Outpost's internal delivery and logging queues.
+
+If the publish consumer cannot subscribe or repeatedly fails to receive messages, `/healthz` reports its status. You can enable worker restarts by adding `publishmq` to `SUPERVISOR_RESTART_WORKERS`. See [Supervisor configuration](/docs/outpost/self-hosting/configuration#supervisor).

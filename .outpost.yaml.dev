@@ -53,6 +53,11 @@ mqs:
 #     connection_string: "Endpoint=sb://azuresb;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;"
 #     topic: "outpost-publish"
 #     subscription: "outpost-publish-sub"
+#   nats:
+#     server_url: "nats://nats:4222"
+#     stream: "outpost-publish"
+#     subject: "outpost-publish"
+#     consumer: "outpost-publish-consumer"
 
 # Log Store (uncomment one)
 # postgres: "postgres://outpost:outpost@postgres:5432/outpost?sslmode=disable"

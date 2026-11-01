@@ -1,12 +1,12 @@
 module github.com/hookdeck/outpost/spec-sdk-tests/tests/destinations
 
-go 1.22
+go 1.26.8
 
 replace github.com/hookdeck/outpost/sdks/outpost-go => ../../../sdks/outpost-go
 
 require (
 	github.com/hookdeck/outpost/sdks/outpost-go v0.0.0-00010101000000-000000000000
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.1
 )
 
 require (

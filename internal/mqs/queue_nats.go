@@ -266,3 +266,97 @@ func (m *natsQueueMessage) moveToDLQ() {
 	}
 	log.Printf("nats: giving up moving exhausted message to DLQ subject %q after retries: %v", m.dlqSubject, err)
 }
+
+type NATSPublishConfig struct {
+	ServerURL    string
+	Stream       string
+	Subject      string
+	ConsumerName string
+}
+
+type NATSPublishQueue struct {
+	config *NATSPublishConfig
+	queue  *NATSQueue
+}
+
+var _ Queue = &NATSPublishQueue{}
+
+func NewNATSPublishQueue(config *NATSPublishConfig) *NATSPublishQueue {
+	return &NATSPublishQueue{
+		config: config,
+		queue: NewNATSQueue(&NATSConfig{
+			ServerURL: config.ServerURL,
+			Stream:    config.Stream,
+			Subject:   config.Subject,
+		}),
+	}
+}
+
+func (q *NATSPublishQueue) Init(ctx context.Context) (func(), error) {
+	return q.queue.Init(ctx)
+}
+
+func (q *NATSPublishQueue) Publish(ctx context.Context, incomingMessage IncomingMessage) error {
+	return q.queue.Publish(ctx, incomingMessage)
+}
+
+func (q *NATSPublishQueue) Subscribe(ctx context.Context, opts ...SubscribeOption) (Subscription, error) {
+	js, err := q.queue.ensureConnected()
+	if err != nil {
+		return nil, err
+	}
+
+	consumer, err := js.CreateOrUpdateConsumer(ctx, q.config.Stream, jetstream.ConsumerConfig{
+		Durable:       q.config.ConsumerName,
+		FilterSubject: q.config.Subject,
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		AckWait:       60 * time.Second,
+		MaxDeliver:    -1,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	messages, err := consumer.Messages(jetstream.PullMaxMessages(1))
+	if err != nil {
+		return nil, err
+	}
+
+	q.queue.mu.Lock()
+	nc := q.queue.nc
+	q.queue.mu.Unlock()
+
+	return &natsPublishSubscription{
+		subscription: &NATSSubscription{
+			msgs:       messages,
+			js:         js,
+			maxDeliver: -1,
+		},
+		conn: nc,
+	}, nil
+}
+
+type natsPublishSubscription struct {
+	subscription *NATSSubscription
+	conn         *nats.Conn
+	once         sync.Once
+}
+
+var _ Subscription = &natsPublishSubscription{}
+
+func (s *natsPublishSubscription) Receive(ctx context.Context) (*Message, error) {
+	msg, err := s.subscription.Receive(ctx)
+	if err != nil {
+		return nil, err
+	}
+	msg.ID = msg.LoggableID
+	return msg, nil
+}
+
+func (s *natsPublishSubscription) Shutdown(ctx context.Context) error {
+	s.once.Do(func() {
+		s.subscription.Shutdown(ctx)
+		s.conn.Close()
+	})
+	return nil
+}

@@ -119,6 +119,10 @@
           {
             "slug": "publishing/publish-from-gcp-pubsub",
             "title": "Publish from GCP Pub/Sub"
+          },
+          {
+            "slug": "publishing/publish-from-nats",
+            "title": "Publish from NATS JetStream"
           }
         ]
       ]

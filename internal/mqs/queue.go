@@ -18,6 +18,7 @@ type QueueConfig struct {
 	GCPPubSub       *GCPPubSubConfig
 	RabbitMQ        *RabbitMQConfig
 	NATS            *NATSConfig
+	PublishNATS     *NATSPublishConfig
 	InMemory        *InMemoryConfig // mainly for testing purposes
 
 	VisibilityTimeout time.Duration
